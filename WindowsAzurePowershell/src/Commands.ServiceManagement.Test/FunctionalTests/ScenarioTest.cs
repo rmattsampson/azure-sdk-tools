@@ -268,6 +268,97 @@ namespace Microsoft.WindowsAzure.Commands.ServiceManagement.Test.FunctionalTests
         }
 
         /// <summary>
+        /// Verify Advanced Provisioning for the Dev/Test Scenario
+        /// Make an Service
+        /// Make a VM
+        /// Add 4 additonal endpoints
+        /// Makes a storage account
+        /// </summary>
+        [TestMethod(), TestCategory("Scenario"), TestProperty("Feature", "IaaS"), Priority(1), Owner("msampson"), Description("Test the cmdlets (Get-AzureDeployment, New-AzureVMConfig, Add-AzureProvisioningConfig, Add-AzureEndpoint, New-AzureVM, Set-AzureSubnet)")]
+        public void DevTestProvisioning()
+        {
+            StartTest(MethodBase.GetCurrentMethod().Name, testStartTime);
+
+            string newAzureVM1Name = Utilities.GetUniqueShortName(vmNamePrefix);
+            //TODO: Update to get Windows Server 2012
+            imageName = vmPowershellCmdlets.GetAzureVMImageName(new[] { "Windows" }, false);
+
+            vmPowershellCmdlets.NewAzureService(serviceName, serviceName, locationName);
+
+            //AzureVMConfigInfo azureVMConfigInfo1 = new AzureVMConfigInfo(newAzureVM1Name, InstanceSize.ExtraSmall.ToString(), imageName);
+            AzureVMConfigInfo azureVMConfigInfo1 = new AzureVMConfigInfo(newAzureVM1Name, InstanceSize.ExtraSmall, imageName);
+            AzureProvisioningConfigInfo azureProvisioningConfig = new AzureProvisioningConfigInfo(OS.Windows, username, password);
+            AzureEndPointConfigInfo azureEndPointConfigInfo = new AzureEndPointConfigInfo(AzureEndPointConfigInfo.ParameterSet.NoLB, ProtocolInfo.tcp, 80, 80, "Http");
+
+            PersistentVMConfigInfo persistentVMConfigInfo1 = new PersistentVMConfigInfo(azureVMConfigInfo1, azureProvisioningConfig, null, azureEndPointConfigInfo);
+            PersistentVM persistentVM1 = vmPowershellCmdlets.GetPersistentVM(persistentVMConfigInfo1);
+
+            //Add all the endpoints that are added by the Dev Test feature in Azure Tools
+            azureEndPointConfigInfo = new AzureEndPointConfigInfo(AzureEndPointConfigInfo.ParameterSet.NoLB, ProtocolInfo.tcp, 443, 443, "Https");
+            azureEndPointConfigInfo.Vm = persistentVM1;
+            persistentVM1 = vmPowershellCmdlets.AddAzureEndPoint(azureEndPointConfigInfo);
+            azureEndPointConfigInfo = new AzureEndPointConfigInfo(AzureEndPointConfigInfo.ParameterSet.NoLB, ProtocolInfo.tcp, 1433, 1433, "MSSQL");
+            azureEndPointConfigInfo.Vm = persistentVM1;
+            persistentVM1 = vmPowershellCmdlets.AddAzureEndPoint(azureEndPointConfigInfo);
+            azureEndPointConfigInfo = new AzureEndPointConfigInfo(AzureEndPointConfigInfo.ParameterSet.NoLB, ProtocolInfo.tcp, 8172, 8172, "WebDeploy");
+            azureEndPointConfigInfo.Vm = persistentVM1;
+            persistentVM1 = vmPowershellCmdlets.AddAzureEndPoint(azureEndPointConfigInfo);
+
+            #region FailedAttemptAtSubnetsAndAffinityGroupsAndVNets
+            //MS--------------
+            //string[] subs = new[] { "subnet1" };
+            //persistentVM1 = vmPowershellCmdlets.SetAzureSubnet(persistentVM1, subs);
+            //var subnets = vmPowershellCmdlets.GetAzureSubnet(persistentVM1);
+            //foreach (string subnet in subnets)
+            //{
+            //    Console.WriteLine("Subnet: {0}", subnet);
+            //}
+            //CollectionAssert.AreEqual(subnets, subs);
+            //string affinityGroup = "WestUsAffinityGroup";
+            //if (Utilities.CheckRemove(vmPowershellCmdlets.GetAzureAffinityGroup, affinityGroup))
+            //{
+            //    vmPowershellCmdlets.NewAzureAffinityGroup(affinityGroup, Resource.Location, null, null);
+            //}
+
+            //vmPowershellCmdlets.SetAzureVNetConfig(vnetConfigFilePath);
+
+            //var result = vmPowershellCmdlets.GetAzureVNetConfig(vnetConfigFilePath);
+
+            //vmPowershellCmdlets.SetAzureVNetConfig(vnetConfigFilePath);
+
+            //Collection<VirtualNetworkSiteContext> vnetSites = vmPowershellCmdlets.GetAzureVNetSite(null);
+            //foreach (var re in vnetSites)
+            //{
+            //    Console.WriteLine("VNet: {0}", re.Name);
+            //}            
+            //vmPowershellCmdlets.NewAzureVMWithAG(serviceName, VMs, affinityGroup);
+            #endregion
+
+            string storageAcctName = "devtest" + new Random().Next(10000, 99999);
+            vmPowershellCmdlets.NewAzureStorageAccount(storageAcctName, locationName);
+            vmPowershellCmdlets.SetAzureSubscription(defaultAzureSubscription.SubscriptionName, storageAcctName);
+
+            //TODO: Add an affinity group or VNET with Subnet
+            PersistentVM[] VMs = { persistentVM1 };
+            //TODO: THIS IS A BUG - vmPowershellCmdlets.NewAzureVM(serviceName, VMs, locationName);
+            vmPowershellCmdlets.NewAzureVM(serviceName, VMs);
+
+            var svcDeployment = vmPowershellCmdlets.GetAzureDeployment(serviceName);
+            Assert.AreEqual(svcDeployment.ServiceName, serviceName);
+            var vmDeployment = vmPowershellCmdlets.GetAzureVM(newAzureVM1Name, serviceName);
+            Assert.AreEqual(vmDeployment.InstanceName, newAzureVM1Name);
+
+            // Cleanup
+            vmPowershellCmdlets.RemoveAzureVM(newAzureVM1Name, serviceName);
+            Assert.AreEqual(null, vmPowershellCmdlets.GetAzureVM(newAzureVM1Name, serviceName));
+            //TODO: Is failing for me because of active containers
+            //vmPowershellCmdlets.RemoveAzureStorageAccount(storageAcctName);
+            //Utility re-try method to remove storage
+            ServiceManagementTest.SetDefaultStorage();
+            pass = true;
+        }
+
+        /// <summary>
         /// Verify Advanced Provisioning
         /// </summary>
         [TestMethod(), TestCategory("Scenario"), TestProperty("Feature", "IaaS"), Priority(1), Owner("priya"), Description("Test the cmdlets (New-AzureService,New-AzureVMConfig,Add-AzureProvisioningConfig ,Add-AzureDataDisk ,Add-AzureEndpoint,New-AzureVM)")]
