@@ -322,9 +322,7 @@ namespace Microsoft.WindowsAzure.Commands.ServiceManagement.Test.FunctionalTests
             vmPowershellCmdlets.RemoveAzureVM(newAzureVM1Name, serviceName);
             Assert.AreEqual(null, vmPowershellCmdlets.GetAzureVM(newAzureVM1Name, serviceName));
             //TODO: Is failing for me because of active containers
-            
             //Utilities.RetryActionUntilSuccess(() => vmPowershellCmdlets.RemoveAzureStorageAccount(storageAcctName), "in use", 10, 30);
-            //Utility re-try method to remove storage
             ServiceManagementTest.SetDefaultStorage();
             pass = true;
         }
